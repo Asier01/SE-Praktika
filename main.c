@@ -28,6 +28,11 @@
 //Round robinerako quantum denbora
 #define ROUND_ROBIN_QUANTUM 2
 
+
+//Memoria fisikoa
+#define PHYSICAL_MEMORY_SIZE 16777216
+PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
+
 int done = 0;
 int tenp_kop = 0;
 int currentPID = 1; //Hasierako prozesuaren ID-a
@@ -212,6 +217,18 @@ int main(int argc, char *argv[]){
     }else{
         printf("DEFEKTUZKO SCHEDULING ALGORITMOA -> FIFO \n");
     }
+    
+    /*TODO:
+        Implementatu core ezberdinen hasieraketa
+        Hari bat sortu Core bakoitzeko 
+        Mutex bidez sinkronizatu (maybe)
+    */
+
+    for(int i=0; i<PHYSICAL_MEMORY_SIZE; i++){
+        PHYSICAL_MEMORY[i] = malloc(4);
+    }
+    PHYSICAL_MEMORY[0] = 234457645;
+    printf("%d \n",PHYSICAL_MEMORY[0]);
     
 
     //Prozesu ilara hasieratu, ilara zirkular bat moduan hartu da
