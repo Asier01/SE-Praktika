@@ -30,8 +30,19 @@
 
 
 //Memoria fisikoa
-#define PHYSICAL_MEMORY_SIZE 16777216
+#define PHYSICAL_MEMORY_SIZE 16777216 //2^24, 24 biteko heldibeak 
 PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
+
+
+//Memoria espazioak (placeholder balioak)
+#define KERNEL_SPACE_SIZE 1024 
+#define KERNEL_ADDRESS 0x000000
+
+#define DATA_SPACE_SIZE 4096
+#define DATA_SPACE_ADDRESS 0x00100
+
+#define TEXT_SPACE_SIZE 4096
+#define TEXT_SPACE_ADDRESS 0x00200
 
 int done = 0;
 int tenp_kop = 0;
@@ -120,13 +131,18 @@ void *tenporizadorea_proccessGen(){
 }
 
 //Tenporizadoreak deitzen duen funtzioa, prozesu berri bat sortzen du.
-void *processGenerator(){
+void *loader(){
+    FILE fp;
+    char filename[] = "wip.txt";
+    fp = *fopen(filename, "r" );
     while(1){
         sem_wait(&sem_proccesGenerator);    //Tenporizadoreari itxaron
         struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
         newProcces->ID = currentPID++;  //Bere atributuak esleitu
         newProcces->STATE = WAIT;
         newProcces->EXEC_TIME =1 + rand() % 5;
+
+
 
         insertLast(PQ, newProcces);
         printf("prozesu berri bat sortu da, PID -> %d \n", newProcces->ID);
@@ -195,7 +211,11 @@ void *scheduler(){
     }
 }
 
+void *cpuExecute(){
+    while(1){
 
+    }
+}
 
 
 int main(int argc, char *argv[]){
@@ -227,9 +247,11 @@ int main(int argc, char *argv[]){
     for(int i=0; i<PHYSICAL_MEMORY_SIZE; i++){
         PHYSICAL_MEMORY[i] = malloc(4);
     }
-    PHYSICAL_MEMORY[0] = 234457645;
-    printf("%d \n",PHYSICAL_MEMORY[0]);
+    //PHYSICAL_MEMORY[0] = 234346346346363095390864457645;
+    //printf("%d \n",PHYSICAL_MEMORY[0]);
     
+    //Core-ak hasieratu
+    struct cpuCore *core1 = (struct cpuCore *)malloc(sizeof(struct cpuCore));
 
     //Prozesu ilara hasieratu, ilara zirkular bat moduan hartu da
     PQ = (struct ProcessQueue *)malloc(sizeof(struct ProcessQueue));
@@ -241,7 +263,7 @@ int main(int argc, char *argv[]){
 
     //Hariak hasieratu eta deitu
 
-    pthread_t erloj, tenp1, tenp2, sched, procGen;
+    pthread_t erloj, tenp1, tenp2, sched, procGen, coreExec1;
     tenp_kop = 0;
     pthread_create(&erloj, NULL, erlojua, NULL);
 
@@ -253,10 +275,11 @@ int main(int argc, char *argv[]){
 
     pthread_create(&sched, NULL, scheduler, NULL);
 
-    pthread_create(&procGen, NULL, processGenerator, NULL );
+    pthread_create(&procGen, NULL, loader, NULL );
 
-    
-    
+    pthread_create(&coreExec1, NULL, cpuExecute, NULL);
+
+
     pthread_join(erloj, NULL);
 
 }
