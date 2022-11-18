@@ -27,7 +27,16 @@ struct ProcessQueue{
 
 struct cpuCore{ 
     int ID;
+    int PC;
+    int PTRB;
+    int IR;
+    int PC;
+    int EXECUTING;
+};
 
+struct coreList{
+    struct cpuCore *Core;
+    struct coreList *NextCore;
 };
 
 #endif

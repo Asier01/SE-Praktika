@@ -44,6 +44,9 @@ PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
 #define TEXT_SPACE_SIZE 4096
 #define TEXT_SPACE_ADDRESS 0x00200
 
+struct cpuCore* coreList[];
+
+
 int done = 0;
 int tenp_kop = 0;
 int currentPID = 1; //Hasierako prozesuaren ID-a
@@ -62,6 +65,10 @@ int scheduler_algorithm = FIFO;
 
 //Prozesu lista hasieratu
 struct ProcessQueue *PQ = NULL;
+
+//CPU-ak exekutatuko duen prozesua
+struct pcb *ExecProcess = NULL;
+int cpuid = 0;
 
 //Bi balioen minimoa lortzeko funtzioa. Ez galdetu zergaitik inplementatu nuen, ez naiz gogoratzen, baina funtzionatzen du
 int min(int x, int y){
@@ -135,8 +142,15 @@ void *loader(){
     FILE fp;
     char filename[] = "wip.txt";
     fp = *fopen(filename, "r" );
+    
+    int dataAddr;
+    int textAddr;
+    
     while(1){
-        sem_wait(&sem_proccesGenerator);    //Tenporizadoreari itxaron
+        //sem_wait(&sem_proccesGenerator);    //Tenporizadoreari itxaron
+
+
+
         struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
         newProcces->ID = currentPID++;  //Bere atributuak esleitu
         newProcces->STATE = WAIT;
@@ -167,7 +181,11 @@ void *scheduler(){
                     currentProcces = deleteFirst(PQ); //Listako lehen elementua hartu eta listatik kendu(0 prozesua ez da hartzen)
                     currentProcces->STATE = RUN;
                     printf("EXEKUTATZEN %d PROZESUA \n", currentProcces->ID);
-                    sleep(currentProcces->EXEC_TIME); //Prozesua "exekutatu", oraingoz sleep bat
+                    
+                    /**
+                     *sleep(currentProcces->EXEC_TIME); //Prozesua "exekutatu", oraingoz sleep bat 
+                     */
+                    
                     break;
 
                 case ROUND_ROBIN:
@@ -211,9 +229,40 @@ void *scheduler(){
     }
 }
 
-void *cpuExecute(){
-    while(1){
 
+void *cpuExecute(){
+    //Ponlo en el main gilipolalassdas
+    //cpuid+=1;
+    //struct cpuCore *core = (struct cpuCore*)malloc(sizeof(struct cpuCore));
+    //core->ID = cpuid;
+    //core->EXECUTING = 0;
+    //core->IR=0;
+    //core->PC=0;
+    //core->PTRB;
+
+    int kont = 0;//Kontagailua hasieratu
+    pthread_mutex_lock(&mutex);
+    while(1){
+        
+        kont = 0;
+        while(core->EXECUTING){
+            done++;
+            
+            //........
+            if(kont>=ROUND_ROBIN_QUANTUM && scheduler_algorithm ==ROUND_ROBIN){
+                core->EXECUTING = 0;
+            }
+
+            pthread_cond_signal(&cond1);
+            pthread_cond_wait(&cond2, &mutex);
+            kont++;
+        }
+
+
+        if(kont>=ROUND_ROBIN_QUANTUM && scheduler_algorithm ==ROUND_ROBIN){
+            pthread_cond_signal(&cond1);
+            pthread_cond_wait(&cond2, &mutex);
+        }
     }
 }
 
@@ -261,6 +310,17 @@ int main(int argc, char *argv[]){
     PQ->data->STATE = 0;
     PQ->Previous = PQ;
 
+
+    for(int i=0; i<4; i++){
+        coreList[i] = (struct cpuCore*)malloc(sizeof(struct cpuCore));
+    }
+        
+
+
+
+
+    ExecProcess = PQ->data;
+
     //Hariak hasieratu eta deitu
 
     pthread_t erloj, tenp1, tenp2, sched, procGen, coreExec1;
@@ -276,6 +336,7 @@ int main(int argc, char *argv[]){
     pthread_create(&sched, NULL, scheduler, NULL);
 
     pthread_create(&procGen, NULL, loader, NULL );
+
 
     pthread_create(&coreExec1, NULL, cpuExecute, NULL);
 
