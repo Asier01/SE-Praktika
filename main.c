@@ -66,6 +66,9 @@ int scheduler_algorithm = FIFO;
 //Prozesu lista hasieratu
 struct ProcessQueue *PQ = NULL;
 
+
+struct cpuCore *core1= NULL;
+
 //CPU-ak exekutatuko duen prozesua
 struct pcb *ExecProcess = NULL;
 int cpuid = 0;
@@ -139,17 +142,57 @@ void *tenporizadorea_proccessGen(){
 
 //Tenporizadoreak deitzen duen funtzioa, prozesu berri bat sortzen du.
 void *loader(){
-    FILE fp;
+    
+    
+    FILE *fp;
     char filename[] = "wip.txt";
-    fp = *fopen(filename, "r" );
+    fp = fopen(filename, "r" );
     
     int dataAddr;
     int textAddr;
     
+
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    char* ptr;
+
+    if(fp == NULL){
+        printf("Ezin izan da ondo irakurri fitxategia !!! \n");
+        exit(EXIT_FAILURE);
+    }
+
+        
+
+    //
+    //Agindu transkripzioa egin
+    //
+
     while(1){
         //sem_wait(&sem_proccesGenerator);    //Tenporizadoreari itxaron
 
+        //Aginduen helbide birtuala lortu
+        read = getline(&line, &len, fp);
 
+        ptr = strtok(read, " ");
+        ptr = strtok(read, " "); //Bigarren tokena lortu
+
+        //textAddr = atoi(ptr);
+        sscanf(ptr, "%x", textAddr);
+
+        //Datuen helbide birtuala lortu
+        read = getline(&line, &len, fp);
+
+        ptr = strtok(read, " ");
+        ptr = strtok(read, " ");//Bigarren tokena lortu
+
+        //dataAddr = atoi(ptr);
+        sscanf(ptr, "%x", textAddr);
+
+        while ((read = getline(&line, &len, fp)) != -1) {
+           
+        }
 
         struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
         newProcces->ID = currentPID++;  //Bere atributuak esleitu
@@ -245,12 +288,12 @@ void *cpuExecute(){
     while(1){
         
         kont = 0;
-        while(core->EXECUTING){
+        while(core1->EXECUTING){
             done++;
             
             //........
             if(kont>=ROUND_ROBIN_QUANTUM && scheduler_algorithm ==ROUND_ROBIN){
-                core->EXECUTING = 0;
+                core1->EXECUTING = 0;
             }
 
             pthread_cond_signal(&cond1);
@@ -296,11 +339,13 @@ int main(int argc, char *argv[]){
     for(int i=0; i<PHYSICAL_MEMORY_SIZE; i++){
         PHYSICAL_MEMORY[i] = malloc(4);
     }
+    printf("tonto\n");
     //PHYSICAL_MEMORY[0] = 234346346346363095390864457645;
     //printf("%d \n",PHYSICAL_MEMORY[0]);
     
     //Core-ak hasieratu
-    struct cpuCore *core1 = (struct cpuCore *)malloc(sizeof(struct cpuCore));
+    
+    core1 = (struct cpuCore *)malloc(sizeof(struct cpuCore));
 
     //Prozesu ilara hasieratu, ilara zirkular bat moduan hartu da
     PQ = (struct ProcessQueue *)malloc(sizeof(struct ProcessQueue));
@@ -310,11 +355,11 @@ int main(int argc, char *argv[]){
     PQ->data->STATE = 0;
     PQ->Previous = PQ;
 
-
+/**
     for(int i=0; i<4; i++){
         coreList[i] = (struct cpuCore*)malloc(sizeof(struct cpuCore));
     }
-        
+   */     
 
 
 

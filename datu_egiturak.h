@@ -30,7 +30,6 @@ struct cpuCore{
     int PC;
     int PTRB;
     int IR;
-    int PC;
     int EXECUTING;
 };
 
