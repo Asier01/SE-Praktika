@@ -36,7 +36,7 @@ int PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
 
 //Memoria espazioak (placeholder balioak)
 #define KERNEL_SPACE_SIZE 1024 
-#define KERNEL_ADDRESS 0x000000
+#define KERNEL_ADDRESS 0xF00000
 
 #define DATA_SPACE_SIZE 4096
 #define DATA_SPACE_ADDRESS 0x00100
@@ -45,6 +45,8 @@ int PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
 #define TEXT_SPACE_ADDRESS 0x00200
 
 struct cpuCore* coreList[];
+
+int erregList[16];
 
 
 int done = 0;
@@ -98,7 +100,8 @@ void *erlojua(){
         pthread_cond_broadcast(&cond2);
         pthread_mutex_unlock(&mutex);
         
-
+    //TODO:
+    //Erlojua konpondu, ez dio schedulerrari deitzen.
     }
 }
 
@@ -122,6 +125,7 @@ void *tenporizadorea_sched(){
 }
 
 //Prozesu sortzaileari deitzeko tenporizadorea
+/**
 void *tenporizadorea_proccessGen(){
     pthread_mutex_lock(&mutex);
     int kont = 0;//Kontagailua hasieratu
@@ -138,6 +142,34 @@ void *tenporizadorea_proccessGen(){
         kont++;
        
     }
+}
+*/
+void execute_proccess(struct pcb *Process){
+    int kodeLuzera = (Process->MEMORY_MANAGER.data - Process->MEMORY_MANAGER.code)/4;
+
+    int kodeHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb]; 
+    int dataHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb+1];
+    /**
+     * pgb-aren forma
+     * adibidez:
+     *  0xFFF0004 -> Helb-Fisiko-Text
+     *  0xFFF0008 -> Helb-Fisiko-Data
+    */
+    char* currentCode = (char*)malloc(8 * sizeof(char));;
+    
+
+    for(int i=0; i++; i<kodeLuzera){
+        sprintf(currentCode, "%.8x", PHYSICAL_MEMORY[kodeHelbFisiko+i]);
+        
+        //TODO:
+        //Kodearen balio hexadezimala string moduan izanda
+        //subString-ak erabili agindua zein den jakiteko eta exekutatzeko
+        //Erregistro listataz baliatuz 'erregList[]'
+
+        //switch(currentCode)
+        
+    }
+
 }
 
 //Tenporizadoreak deitzen duen funtzioa, prozesu berri bat sortzen du.
@@ -237,7 +269,7 @@ void *loader(){
              newProcces->MEMORY_MANAGER.code = textAddr;
              newProcces->MEMORY_MANAGER.data = dataAddr;
              //(__int32_t) datuen balioak lortzeko
-             newProcces->EXEC_TIME =1 + rand() % 5;
+             //newProcces->EXEC_TIME =1 + rand() % 5;
 
 
 
@@ -423,8 +455,8 @@ int main(int argc, char *argv[]){
     pthread_create(&tenp2, NULL, tenporizadorea_sched, NULL);
     tenp_kop++;
     
-    pthread_create(&tenp1, NULL, tenporizadorea_proccessGen, NULL);
-    tenp_kop++;
+    //pthread_create(&tenp1, NULL, tenporizadorea_proccessGen, NULL);
+    //tenp_kop++;
 
     pthread_create(&sched, NULL, scheduler, NULL);
 
