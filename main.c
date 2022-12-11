@@ -31,7 +31,7 @@
 
 //Memoria fisikoa
 #define PHYSICAL_MEMORY_SIZE 16777216 //2^24, 24 biteko heldibeak 
-PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
+int PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
 
 
 //Memoria espazioak (placeholder balioak)
@@ -145,7 +145,7 @@ void *loader(){
     
     
     FILE *fp;
-    char filename[] = "wip.txt";
+    char filename[] = "code.txt"; //Proba fitxategia, bukaeran aldatu izena beharrezko fitxategira
     fp = fopen(filename, "r" );
     
     int dataAddr;
@@ -156,14 +156,12 @@ void *loader(){
     size_t len = 0;
     ssize_t read;
 
-    char* ptr;
+    char* token = NULL;
 
     if(fp == NULL){
         printf("Ezin izan da ondo irakurri fitxategia !!! \n");
         exit(EXIT_FAILURE);
     }
-
-        
 
     //
     //Agindu transkripzioa egin
@@ -171,39 +169,80 @@ void *loader(){
 
     while(1){
         //sem_wait(&sem_proccesGenerator);    //Tenporizadoreari itxaron
-
+        
         //Aginduen helbide birtuala lortu
         read = getline(&line, &len, fp);
-
-        ptr = strtok(read, " ");
-        ptr = strtok(read, " "); //Bigarren tokena lortu
-
+       
+        
+        
+        token = strtok(line, " "); 
+        
+        token = strtok(NULL, " "); //Bigarren tokena lortu
+      
         //textAddr = atoi(ptr);
-        sscanf(ptr, "%x", textAddr);
-
+        //sscanf(ptr, "%x", textAddr);
+        
+        textAddr = (int)strtol(token, NULL, 16);
+        printf("%.8X\n", textAddr);
+        printf("-----------------------\n");
         //Datuen helbide birtuala lortu
         read = getline(&line, &len, fp);
-
-        ptr = strtok(read, " ");
-        ptr = strtok(read, " ");//Bigarren tokena lortu
-
+        
+        token = strtok(line, " ");
+        
+        token = strtok(NULL, " ");//Bigarren tokena lortu
+        
         //dataAddr = atoi(ptr);
-        sscanf(ptr, "%x", textAddr);
+        //sscanf(ptr, "%x", textAddr);
+        dataAddr = (int)strtol(token, NULL,16);
+        printf("%.8x\n", dataAddr);
+        printf("-----------------------\n");
 
-        while ((read = getline(&line, &len, fp)) != -1) {
+        //8 karaktereko string batera printeatu (for the future) 
+        /**---------------------------------------------------------------------------------
+        char* hexfinal = (char*)malloc(8 * sizeof(char));;
+        sprintf(hexfinal, "%.8x");
+        printf("%s\n", hexfinal);
+        **///-------------------------------------------------------------------------------
+
+        int helbLog = 0x0;
+
+
+        //printf("KodeSegmentua\n");
+        while((getline(&line, &len, fp)) != -1) {
            
+           //printf("%s \n", line);
+
+           helbLog = helbLog+4;
+
+            if(helbLog == dataAddr){
+                break;
+            }
+
+
+        }
+        //printf("DatuSegmentua\n");
+        while ((getline(&line, &len, fp)) != -1) {
+          //  printf("%s \n", line);
         }
 
+
+      
         struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
         newProcces->ID = currentPID++;  //Bere atributuak esleitu
         newProcces->STATE = WAIT;
+        newProcces->MEMORY_MANAGER.code = textAddr;
+        newProcces->MEMORY_MANAGER.data = dataAddr;
+        //(__int32_t)
         newProcces->EXEC_TIME =1 + rand() % 5;
+        
 
 
 
         insertLast(PQ, newProcces);
         printf("prozesu berri bat sortu da, PID -> %d \n", newProcces->ID);
         
+        exit(0);
         
     }
    
@@ -338,8 +377,9 @@ int main(int argc, char *argv[]){
 
     for(int i=0; i<PHYSICAL_MEMORY_SIZE; i++){
         PHYSICAL_MEMORY[i] = malloc(4);
+        PHYSICAL_MEMORY[i] = INT_MAX;
     }
-    printf("tonto\n");
+    
     //PHYSICAL_MEMORY[0] = 234346346346363095390864457645;
     //printf("%d \n",PHYSICAL_MEMORY[0]);
     
