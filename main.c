@@ -145,7 +145,9 @@ void *loader(){
     
     
     FILE *fp;
-    char filename[] = "code.txt"; //Proba fitxategia, bukaeran aldatu izena beharrezko fitxategira
+    char* filename =(char *) malloc(11*sizeof(char)); 
+    filename = "prog000.elf"; //Lehenengo fitxategia -> Fitxategiak ordenean nomenklatura berdina izan behar dute ondo irakurtzeko
+                                                    //  prog000.elf ; prog001.elf ; prog002.elf ...... 
     fp = fopen(filename, "r" );
     
     int dataAddr;
@@ -158,96 +160,102 @@ void *loader(){
 
     char* token = NULL;
 
+    int helbLog = 0x0;
+
     if(fp == NULL){
         printf("Ezin izan da ondo irakurri fitxategia !!! \n");
         exit(EXIT_FAILURE);
     }
-
+    int progKont = 0;
+    char * progNumStr = (char *)malloc(11*sizeof(char));
     //
     //Agindu transkripzioa egin
     //
+    while(fp!=NULL){ 
+         progKont++;
+         while(1){//while honek ez du ezer egiten oraingoz
 
-    while(1){
-        //sem_wait(&sem_proccesGenerator);    //Tenporizadoreari itxaron
-        
-        //Aginduen helbide birtuala lortu
-        read = getline(&line, &len, fp);
-       
-        
-        
-        token = strtok(line, " "); 
-        
-        token = strtok(NULL, " "); //Bigarren tokena lortu
-      
-        //textAddr = atoi(ptr);
-        //sscanf(ptr, "%x", textAddr);
-        
-        textAddr = (int)strtol(token, NULL, 16);
-        printf("%.8X\n", textAddr);
-        printf("-----------------------\n");
-        //Datuen helbide birtuala lortu
-        read = getline(&line, &len, fp);
-        
-        token = strtok(line, " ");
-        
-        token = strtok(NULL, " ");//Bigarren tokena lortu
-        
-        //dataAddr = atoi(ptr);
-        //sscanf(ptr, "%x", textAddr);
-        dataAddr = (int)strtol(token, NULL,16);
-        printf("%.8x\n", dataAddr);
-        printf("-----------------------\n");
+             //sem_wait(&sem_proccesGenerator);    //Tenporizadoreari itxaron
 
-        //8 karaktereko string batera printeatu (for the future) 
-        /**---------------------------------------------------------------------------------
-        char* hexfinal = (char*)malloc(8 * sizeof(char));;
-        sprintf(hexfinal, "%.8x");
-        printf("%s\n", hexfinal);
-        **///-------------------------------------------------------------------------------
-
-        int helbLog = 0x0;
+             //Aginduen helbide birtuala lortu
+             read = getline(&line, &len, fp);
+             token = strtok(line, " "); 
+             token = strtok(NULL, " "); //Bigarren tokena lortu
 
 
-        //printf("KodeSegmentua\n");
-        while((getline(&line, &len, fp)) != -1) {
-           
-           //printf("%s \n", line);
-
-           helbLog = helbLog+4;
-
-            if(helbLog == dataAddr){
-                break;
-            }
+             textAddr = (int)strtol(token, NULL, 16);//String-a balio hexadezimaleko int-era bihurtu(4 byte okupatzeko eta ez 8)
+             printf("%.8X\n", textAddr);
+             printf("-----------------------\n");
 
 
-        }
-        //printf("DatuSegmentua\n");
-        while ((getline(&line, &len, fp)) != -1) {
-          //  printf("%s \n", line);
-        }
+             //Datuen helbide birtuala lortu
+             read = getline(&line, &len, fp);
+
+             token = strtok(line, " ");
+
+             token = strtok(NULL, " ");//Bigarren tokena lortu
 
 
-      
-        struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
-        newProcces->ID = currentPID++;  //Bere atributuak esleitu
-        newProcces->STATE = WAIT;
-        newProcces->MEMORY_MANAGER.code = textAddr;
-        newProcces->MEMORY_MANAGER.data = dataAddr;
-        //(__int32_t)
-        newProcces->EXEC_TIME =1 + rand() % 5;
-        
+             dataAddr = (int)strtol(token, NULL,16);
+             printf("%.8x\n", dataAddr);
+             printf("-----------------------\n");
+
+             //8 karaktereko string batera printeatu (for the future) 
+             /**---------------------------------------------------------------------------------
+             char* hexfinal = (char*)malloc(8 * sizeof(char));;
+             sprintf(hexfinal, "%.8x");
+             printf("%s\n", hexfinal);
+             **/
+             //-------------------------------------------------------------------------------
+
+             helbLog = 0x0;
+
+
+             //printf("KodeSegmentua\n");
+             while((getline(&line, &len, fp)) != -1) {
+
+                //printf("%s \n", line);
+
+                helbLog = helbLog+4;
+
+                 if(helbLog == dataAddr){
+                     break;
+                 }
+
+
+             }
+             //printf("DatuSegmentua\n");
+             while ((getline(&line, &len, fp)) != -1) {
+               //  printf("%s \n", line);
+             }
 
 
 
-        insertLast(PQ, newProcces);
-        printf("prozesu berri bat sortu da, PID -> %d \n", newProcces->ID);
-        
-        exit(0);
-        
+             struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
+             newProcces->ID = currentPID++;  //Bere atributuak esleitu
+             newProcces->STATE = WAIT;
+             newProcces->MEMORY_MANAGER.code = textAddr;
+             newProcces->MEMORY_MANAGER.data = dataAddr;
+             //(__int32_t) datuen balioak lortzeko
+             newProcces->EXEC_TIME =1 + rand() % 5;
+
+
+
+
+             insertLast(PQ, newProcces);
+             printf("prozesu berri bat sortu da, PID -> %d \n", newProcces->ID);
+            
+
+             fclose(fp);
+             sprintf(progNumStr, "prog%.3d.elf", progKont); //Hurrengo fitxategiaren izena 
+             //printf("%s\n", progNumStr);
+             filename = progNumStr; //Filename bakarrik erabiltzen bada segFault ematen du, ni diea zergaitik.
+             fp = fopen(filename, "r"); //Hurrengo fitxategia zabaldu, ez bada existitzen ez du hurrengo iterazioa burutuko
+             break;
+         }
     }
-   
-}
-/**
+}       
+/**     
  * Tenporizadoreak deitzen dion funtzioa
 */
 void *scheduler(){
@@ -313,7 +321,7 @@ void *scheduler(){
 
 
 void *cpuExecute(){
-    //Ponlo en el main gilipolalassdas
+    //Ponlo en el main maybeeee
     //cpuid+=1;
     //struct cpuCore *core = (struct cpuCore*)malloc(sizeof(struct cpuCore));
     //core->ID = cpuid;
