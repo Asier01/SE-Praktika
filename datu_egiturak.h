@@ -31,11 +31,9 @@ struct cpuCore{
     int PTRB;
     int IR;
     int EXECUTING;
+    int erregList[16];
 };
 
-struct coreList{
-    struct cpuCore *Core;
-    struct coreList *NextCore;
-};
+
 
 #endif

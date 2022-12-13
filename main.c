@@ -10,6 +10,15 @@
 #include <math.h>
 #include <string.h>
 
+//
+//ENTREGA -> Urtarrillak 13 - 23:55
+//
+
+//TODO:
+//MAKEFILE egin kompilatzeko
+//Modularizatu .c ezberdinetan
+
+
 //Schedulerrari eta prozesu generadoreari deitzeko frekuentzia
 #define SCHEDULER_FRECUENCY 100000
 #define PROCCESS_GENERATOR_FRECUENCY 150000
@@ -44,9 +53,9 @@ int PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
 #define TEXT_SPACE_SIZE 4096
 #define TEXT_SPACE_ADDRESS 0x00200
 
-struct cpuCore* coreList[];
 
-int erregList[16];
+
+
 
 
 int done = 0;
@@ -84,6 +93,16 @@ int min(int x, int y){
     }
 }
 
+//String baten substring bat lortzeko, p indizetik l indizera
+void substring(char s[], char sub[], int p, int l) {
+   int c = 0;
+   
+   while (c < l) {
+      sub[c] = s[p+c-1];
+      c++;
+   }
+   sub[c] = '\0';
+}
 
 //Erlojua
 void *erlojua(){
@@ -126,16 +145,13 @@ void *tenporizadorea_sched(){
 
 //Prozesu sortzaileari deitzeko tenporizadorea
 /**
-void *tenporizadorea_proccessGen(){
+void *CPU(){
     pthread_mutex_lock(&mutex);
     int kont = 0;//Kontagailua hasieratu
     while(1){
         done++;
 
-        if(kont>=PROCCESS_GENERATOR_FRECUENCY){//Kontagailua frekuentziaren konstantera heltzean, prozesu sortzaileari deitu
-            sem_post(&sem_proccesGenerator);  //Prozesu sortzaileari deitu
-            kont=0;//Kontagailua berriro zero bihurtu
-        }
+       //TODO: CPU-aren exekuzioak eginsdlksdohisd
 
         pthread_cond_signal(&cond1);
         pthread_cond_wait(&cond2, &mutex);
@@ -144,31 +160,61 @@ void *tenporizadorea_proccessGen(){
     }
 }
 */
+
+
 void execute_proccess(struct pcb *Process){
     int kodeLuzera = (Process->MEMORY_MANAGER.data - Process->MEMORY_MANAGER.code)/4;
 
     int kodeHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb]; 
     int dataHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb+1];
+    
+    int erregList[16];
+    
     /**
      * pgb-aren forma
      * adibidez:
      *  0xFFF0004 -> Helb-Fisiko-Text
      *  0xFFF0008 -> Helb-Fisiko-Data
     */
-    char* currentCode = (char*)malloc(8 * sizeof(char));;
-    
+    char* currentCode = (char*)malloc(8 * sizeof(char));
+    char* erregHelb = (char*)malloc(6 * sizeof(char));
+    char erreg;
+    char erreg2;//add agindurako
+    char erreg3;//add agindurako
 
     for(int i=0; i++; i<kodeLuzera){
-        sprintf(currentCode, "%.8x", PHYSICAL_MEMORY[kodeHelbFisiko+i]);
-        
-        //TODO:
-        //Kodearen balio hexadezimala string moduan izanda
-        //subString-ak erabili agindua zein den jakiteko eta exekutatzeko
-        //Erregistro listataz baliatuz 'erregList[]'
 
-        //switch(currentCode)
+        sprintf(currentCode, "%.8x", PHYSICAL_MEMORY[kodeHelbFisiko+i]);
+
+        switch (currentCode[0])
+        {
+        case '0': // ld
+
+            sprintf(erregHelb, "(%s)\n", currentCode + strlen(currentCode) - 6);//Helbidea substring moduan lortu
+            erreg = currentCode[1]; //Zein erregistro erabiliko den aukeratu
+            erregList[erreg - 48] = PHYSICAL_MEMORY[(int)strtol(erregHelb, NULL,16)]; //Erregistroan kargatu
+
+            break;
+        case '1': // st
+            sprintf(erregHelb, "(%s)\n", currentCode + strlen(currentCode) - 6);//Helbidea substring moduan lortu
+            erreg = currentCode[1]; //Zein erregistro erabiliko den aukeratu
+            PHYSICAL_MEMORY[(int)strtol(erregHelb, NULL,16)] = erregList[erreg -48];
+            break;
+        case '2': // add
+            erreg = currentCode[1];
+            erreg2 = currentCode[2];
+            erreg3 = currentCode[3];
+            
+            erregList[erreg-48] = erregList[erreg2-48] + erregList[erreg3-48];  
+            break;
+
+        default:
+            break;
+        }
         
     }
+
+    printf("%d\n", PHYSICAL_MEMORY[(int)strtol(erregHelb, NULL,16)]);    
 
 }
 
@@ -241,33 +287,36 @@ void *loader(){
              //-------------------------------------------------------------------------------
 
              helbLog = 0x0;
-
+             int helb_fis = 0;
 
              //printf("KodeSegmentua\n");
              while((getline(&line, &len, fp)) != -1) {
 
-                //printf("%s \n", line);
-
                 helbLog = helbLog+4;
-
-                 if(helbLog == dataAddr){
-                     break;
-                 }
+                PHYSICAL_MEMORY[helb_fis] = (int)strtol(line, NULL,16);
+                helb_fis++;
+                if(helbLog == dataAddr){
+                    break;
+                }
 
 
              }
              //printf("DatuSegmentua\n");
              while ((getline(&line, &len, fp)) != -1) {
+                PHYSICAL_MEMORY[helb_fis] = (int)strtol(line, NULL,16);
+                helb_fis++;
                //  printf("%s \n", line);
              }
 
-
+            PHYSICAL_MEMORY[helb_fis] = 0;
+            PHYSICAL_MEMORY[helb_fis+1] = 0 + dataAddr/4; 
 
              struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
              newProcces->ID = currentPID++;  //Bere atributuak esleitu
              newProcces->STATE = WAIT;
              newProcces->MEMORY_MANAGER.code = textAddr;
              newProcces->MEMORY_MANAGER.data = dataAddr;
+             newProcces->MEMORY_MANAGER.pgb = helb_fis;
              //(__int32_t) datuen balioak lortzeko
              //newProcces->EXEC_TIME =1 + rand() % 5;
 
@@ -304,6 +353,8 @@ void *scheduler(){
                     currentProcces->STATE = RUN;
                     printf("EXEKUTATZEN %d PROZESUA \n", currentProcces->ID);
                     
+                    execute_proccess(currentProcces);
+
                     /**
                      *sleep(currentProcces->EXEC_TIME); //Prozesua "exekutatu", oraingoz sleep bat 
                      */
@@ -353,37 +404,32 @@ void *scheduler(){
 
 
 void *cpuExecute(){
-    //Ponlo en el main maybeeee
-    //cpuid+=1;
-    //struct cpuCore *core = (struct cpuCore*)malloc(sizeof(struct cpuCore));
-    //core->ID = cpuid;
-    //core->EXECUTING = 0;
-    //core->IR=0;
-    //core->PC=0;
-    //core->PTRB;
+    
+    cpuid+=1;
+    struct cpuCore *core = (struct cpuCore*)malloc(sizeof(struct cpuCore));
+    core->ID = cpuid;
+    core->EXECUTING = 0;
+    core->IR=0;
+    core->PC=0;
+    core->PTRB;
+    
+    
+
+
 
     int kont = 0;//Kontagailua hasieratu
     pthread_mutex_lock(&mutex);
     while(1){
         
-        kont = 0;
-        while(core1->EXECUTING){
+        int zikloKop = 0;
+        while(! core1->EXECUTING){
             done++;
             
-            //........
-            if(kont>=ROUND_ROBIN_QUANTUM && scheduler_algorithm ==ROUND_ROBIN){
-                core1->EXECUTING = 0;
-            }
+            
 
             pthread_cond_signal(&cond1);
             pthread_cond_wait(&cond2, &mutex);
-            kont++;
-        }
-
-
-        if(kont>=ROUND_ROBIN_QUANTUM && scheduler_algorithm ==ROUND_ROBIN){
-            pthread_cond_signal(&cond1);
-            pthread_cond_wait(&cond2, &mutex);
+            zikloKop++;
         }
     }
 }
@@ -409,6 +455,9 @@ int main(int argc, char *argv[]){
         printf("DEFEKTUZKO SCHEDULING ALGORITMOA -> FIFO \n");
     }
     
+
+    struct cpuCore* coreList[atoi(argv[2])];
+
     /*TODO:
         Implementatu core ezberdinen hasieraketa
         Hari bat sortu Core bakoitzeko 
@@ -417,7 +466,7 @@ int main(int argc, char *argv[]){
 
     for(int i=0; i<PHYSICAL_MEMORY_SIZE; i++){
         PHYSICAL_MEMORY[i] = malloc(4);
-        PHYSICAL_MEMORY[i] = INT_MAX;
+        PHYSICAL_MEMORY[i] = INT_MAX; // Libre dauden helbideak INT_MAX izango dute
     }
     
     //PHYSICAL_MEMORY[0] = 234346346346363095390864457645;
@@ -442,8 +491,6 @@ int main(int argc, char *argv[]){
    */     
 
 
-
-
     ExecProcess = PQ->data;
 
     //Hariak hasieratu eta deitu
@@ -464,7 +511,7 @@ int main(int argc, char *argv[]){
 
 
     pthread_create(&coreExec1, NULL, cpuExecute, NULL);
-
+    tenp_kop++;
 
     pthread_join(erloj, NULL);
 
