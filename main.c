@@ -171,7 +171,7 @@ void execute_proccess(struct pcb *Process){
 
     int kodeHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb]; 
     int dataHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb+1];
-    printf("LEHENGO DAtUA ---- %d", PHYSICAL_MEMORY[dataHelbFisiko]);
+    printf("DATA HELBIDE FISIKOA --- %d\n", dataHelbFisiko);
     
     int erregList[16];
     
@@ -200,10 +200,14 @@ void execute_proccess(struct pcb *Process){
 
         case '0': // ld
 
-            sprintf(erregHelb, "(%s)\n", currentCode + strlen(currentCode) - 6);//Helbide logikoa substring moduan lortu
+            sprintf(erregHelb, "%s\n", currentCode + strlen(currentCode) - 6);//Helbide logikoa substring moduan lortu
+            
+
+            //printf("ERREG HELBIDE LOGIKOA %s\n", erregHelb);
+            //printf("ERREG HELBIDE LOGIKOA %d\n", (int)strtol(erregHelb, NULL,16));
 
             erregHelbFis = dataHelbFisiko + ((int)strtol(erregHelb, NULL,16) - Process->MEMORY_MANAGER.data)/4;
-
+            //printf("ERREG HELBIDE FISIKOA %d\n", erregHelbFis);
             erreg = currentCode[1]; //Zein erregistro erabiliko den aukeratu
 
             erregList[erreg - 48] = (__int32_t)PHYSICAL_MEMORY[erregHelbFis]; //Erregistroan kargatu
@@ -212,7 +216,7 @@ void execute_proccess(struct pcb *Process){
         case '1': // st
 
 
-            sprintf(erregHelb, "(%s)\n", currentCode + strlen(currentCode) - 6);//Helbidea substring moduan lortu
+            sprintf(erregHelb, "%s\n", currentCode + strlen(currentCode) - 6);//Helbidea substring moduan lortu
 
             erreg = currentCode[1]; //Zein erregistro erabiliko den aukeratu
 
@@ -393,11 +397,7 @@ void *scheduler(){
                     printf("EXEKUTATZEN %d PROZESUA \n", currentProcces->ID);
                     
                     execute_proccess(currentProcces);
-                    //sem_wait(&sem_execute);
-                    /**
-                     *sleep(currentProcces->EXEC_TIME); //Prozesua "exekutatu", oraingoz sleep bat 
-                     */
-                    
+
                     break;
 
                 case ROUND_ROBIN:
