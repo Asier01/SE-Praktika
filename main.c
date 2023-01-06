@@ -44,8 +44,8 @@ int PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
 
 
 //Memoria espazioak (placeholder balioak)
-#define KERNEL_SPACE_SIZE 1024 
-#define KERNEL_ADDRESS 0xF00000
+//#define KERNEL_SPACE_SIZE 1024 
+#define KERNEL_ADDRESS 0xFF0000
 
 #define DATA_SPACE_SIZE 4096
 #define DATA_SPACE_ADDRESS 0x00100
@@ -68,6 +68,7 @@ pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
 
 sem_t sem_shceduler;
 sem_t sem_proccesGenerator;
+sem_t sem_execute;
 
 
 //Scheduling algoritmoaren defektuzko balioa
@@ -165,8 +166,12 @@ void *CPU(){
 void execute_proccess(struct pcb *Process){
     int kodeLuzera = (Process->MEMORY_MANAGER.data - Process->MEMORY_MANAGER.code)/4;
 
+
+    printf("------- KODE LUZERA ---%d \n", kodeLuzera);
+
     int kodeHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb]; 
     int dataHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb+1];
+    printf("LEHENGO DAtUA ---- %d", PHYSICAL_MEMORY[dataHelbFisiko]);
     
     int erregList[16];
     
@@ -178,44 +183,62 @@ void execute_proccess(struct pcb *Process){
     */
     char* currentCode = (char*)malloc(8 * sizeof(char));
     char* erregHelb = (char*)malloc(6 * sizeof(char));
+
+    int erregHelbFis;
     char erreg;
     char erreg2;//add agindurako
     char erreg3;//add agindurako
 
-    for(int i=0; i++; i<kodeLuzera){
+    for(int i=0;i<kodeLuzera; i++){
 
         sprintf(currentCode, "%.8x", PHYSICAL_MEMORY[kodeHelbFisiko+i]);
-
+        //printf("++++++++++++++++++%s\n", currentCode);
+        //printf("\n---------------------------");
         switch (currentCode[0])
         {
+            // -48 erabiltzen da zenbakizko balioa lortzeko, funtziona beharko zuen.
+
         case '0': // ld
 
-            sprintf(erregHelb, "(%s)\n", currentCode + strlen(currentCode) - 6);//Helbidea substring moduan lortu
-            erreg = currentCode[1]; //Zein erregistro erabiliko den aukeratu
-            erregList[erreg - 48] = PHYSICAL_MEMORY[(int)strtol(erregHelb, NULL,16)]; //Erregistroan kargatu
+            sprintf(erregHelb, "(%s)\n", currentCode + strlen(currentCode) - 6);//Helbide logikoa substring moduan lortu
 
+            erregHelbFis = dataHelbFisiko + ((int)strtol(erregHelb, NULL,16) - Process->MEMORY_MANAGER.data)/4;
+
+            erreg = currentCode[1]; //Zein erregistro erabiliko den aukeratu
+
+            erregList[erreg - 48] = (__int32_t)PHYSICAL_MEMORY[erregHelbFis]; //Erregistroan kargatu
+            printf("KARGATUTA --- %d \n",(__int32_t)PHYSICAL_MEMORY[erregHelbFis]);
             break;
         case '1': // st
+
+
             sprintf(erregHelb, "(%s)\n", currentCode + strlen(currentCode) - 6);//Helbidea substring moduan lortu
+
             erreg = currentCode[1]; //Zein erregistro erabiliko den aukeratu
-            PHYSICAL_MEMORY[(int)strtol(erregHelb, NULL,16)] = erregList[erreg -48];
+
+            erregHelbFis = dataHelbFisiko + ((int)strtol(erregHelb, NULL,16) - Process->MEMORY_MANAGER.data)/4;
+
+            PHYSICAL_MEMORY[erregHelbFis] = erregList[erreg -48];
+            printf("KALKULUA EMAITZA -----> %d\n", erregList[erreg -48]);
             break;
         case '2': // add
-            erreg = currentCode[1];
+            erreg = currentCode[1]; //Beharrezko erregistroak hartu
             erreg2 = currentCode[2];
             erreg3 = currentCode[3];
-            
-            erregList[erreg-48] = erregList[erreg2-48] + erregList[erreg3-48];  
+                
+            erregList[erreg-48] = erregList[erreg2-48] + erregList[erreg3-48];  //Kalkulua egin
             break;
 
         default:
+            //printf("EMAITZA -------%d\n--------", PHYSICAL_MEMORY[(int)strtol(erregHelb, NULL,16)]);   
             break;
         }
         
     }
 
-    printf("%d\n", PHYSICAL_MEMORY[(int)strtol(erregHelb, NULL,16)]);    
-
+   
+    //sem_post(&sem_execute); 
+    
 }
 
 //Tenporizadoreak deitzen duen funtzioa, prozesu berri bat sortzen du.
@@ -230,6 +253,9 @@ void *loader(){
     
     int dataAddr;
     int textAddr;
+
+
+    int currentKernelAddress = KERNEL_ADDRESS;
     
 
     char * line = NULL;
@@ -249,9 +275,13 @@ void *loader(){
     //
     //Agindu transkripzioa egin
     //
+
+    int helb_fis = 0;
+    
     while(fp!=NULL){ 
          progKont++;
-         while(1){//while honek ez du ezer egiten oraingoz
+         while(1){
+             struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
 
              //sem_wait(&sem_proccesGenerator);    //Tenporizadoreari itxaron
 
@@ -262,8 +292,8 @@ void *loader(){
 
 
              textAddr = (int)strtol(token, NULL, 16);//String-a balio hexadezimaleko int-era bihurtu(4 byte okupatzeko eta ez 8)
-             printf("%.8X\n", textAddr);
-             printf("-----------------------\n");
+            // printf("%.8X\n", textAddr);
+            // printf("-----------------------\n");
 
 
              //Datuen helbide birtuala lortu
@@ -275,8 +305,8 @@ void *loader(){
 
 
              dataAddr = (int)strtol(token, NULL,16);
-             printf("%.8x\n", dataAddr);
-             printf("-----------------------\n");
+            // printf("%.8x\n", dataAddr);
+            // printf("-----------------------\n");
 
              //8 karaktereko string batera printeatu (for the future) 
              /**---------------------------------------------------------------------------------
@@ -287,8 +317,9 @@ void *loader(){
              //-------------------------------------------------------------------------------
 
              helbLog = 0x0;
-             int helb_fis = 0;
-
+             
+             PHYSICAL_MEMORY[currentKernelAddress] = helb_fis;
+             
              //printf("KodeSegmentua\n");
              while((getline(&line, &len, fp)) != -1) {
 
@@ -301,25 +332,33 @@ void *loader(){
 
 
              }
+
+             PHYSICAL_MEMORY[currentKernelAddress+1] = helb_fis;
+
              //printf("DatuSegmentua\n");
              while ((getline(&line, &len, fp)) != -1) {
                 PHYSICAL_MEMORY[helb_fis] = (int)strtol(line, NULL,16);
+                printf("KARGATUTAKO DATUAK - %d \n",PHYSICAL_MEMORY[helb_fis]);
                 helb_fis++;
-               //  printf("%s \n", line);
+                
              }
 
-            PHYSICAL_MEMORY[helb_fis] = 0;
-            PHYSICAL_MEMORY[helb_fis+1] = 0 + dataAddr/4; 
+             //PHYSICAL_MEMORY[helb_fis] = 0;
+             //PHYSICAL_MEMORY[helb_fis+1] = 0 + dataAddr/4; 
 
-             struct pcb *newProcces = (struct pcb*)malloc(sizeof(struct pcb));   //Prozesu berri bat (pcb bat) sortu
+             newProcces->MEMORY_MANAGER.pgb =  currentKernelAddress;
+            printf("+++++++++++++++++++++ %d\n", currentKernelAddress);
+            printf("+++++++++++++++++++++ %d\n", PHYSICAL_MEMORY[newProcces->MEMORY_MANAGER.pgb]);
+
              newProcces->ID = currentPID++;  //Bere atributuak esleitu
              newProcces->STATE = WAIT;
              newProcces->MEMORY_MANAGER.code = textAddr;
              newProcces->MEMORY_MANAGER.data = dataAddr;
-             newProcces->MEMORY_MANAGER.pgb = helb_fis;
+             
              //(__int32_t) datuen balioak lortzeko
              //newProcces->EXEC_TIME =1 + rand() % 5;
 
+            currentKernelAddress = currentKernelAddress+2;
 
 
 
@@ -354,7 +393,7 @@ void *scheduler(){
                     printf("EXEKUTATZEN %d PROZESUA \n", currentProcces->ID);
                     
                     execute_proccess(currentProcces);
-
+                    //sem_wait(&sem_execute);
                     /**
                      *sleep(currentProcces->EXEC_TIME); //Prozesua "exekutatu", oraingoz sleep bat 
                      */
