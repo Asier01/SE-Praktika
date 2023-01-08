@@ -11,7 +11,7 @@ struct pcb{
     int ID;
     struct mm MEMORY_MANAGER;
     int STATE;
-    int EXEC_TIME;
+    int PRIORITY;
     // int PRIORITY;
     // int PC;
     // ....
@@ -32,6 +32,7 @@ struct cpuCore{
     int IR;
     int EXECUTING;
     int erregList[16];
+    struct pcb *executableProcess;
 };
 
 

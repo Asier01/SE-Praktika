@@ -21,7 +21,7 @@ struct ProcessQueue *shortestProcess(struct ProcessQueue *PQ){
     struct ProcessQueue *returnPQ = currentPQ->Next;
     while(currentPQ != head){
 
-        if(currentPQ->data->EXEC_TIME  <  returnPQ->data->EXEC_TIME){
+        if(currentPQ->data->PRIORITY  >  returnPQ->data->PRIORITY){
             returnPQ = currentPQ;
         }
         if(currentPQ->Next == head){
@@ -51,7 +51,7 @@ void printList(struct ProcessQueue *PQ){
     printf("ProccesQueue :\n");
     while(currentPQ != NULL){
         printf("-----\n");
-        printf("PID - %d - Exec_Time - %d \n", currentPQ->data->ID, currentPQ->data->EXEC_TIME);
+        printf("PID - %d - Priority - %d \n", currentPQ->data->ID, currentPQ->data->PRIORITY);
         
         
         if(currentPQ->Next == head){

@@ -32,7 +32,7 @@
 //Scheduling algoritmoak
 #define FIFO 1
 #define ROUND_ROBIN 2
-#define SJF 3
+#define PRIORITY_SCHED 3
 
 //Round robinerako quantum denbora
 #define ROUND_ROBIN_QUANTUM 2
@@ -57,18 +57,20 @@ int PHYSICAL_MEMORY[PHYSICAL_MEMORY_SIZE];
 
 
 
-
+int numCore;
 int done = 0;
 int tenp_kop = 0;
 int currentPID = 1; //Hasierako prozesuaren ID-a
 int kont_sched = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
 
 sem_t sem_shceduler;
 sem_t sem_proccesGenerator;
 sem_t sem_execute;
+sem_t sem_loader;
 
 
 //Scheduling algoritmoaren defektuzko balioa
@@ -76,10 +78,11 @@ int scheduler_algorithm = FIFO;
 
 
 //Prozesu lista hasieratu
-struct ProcessQueue *PQ = NULL;
+struct ProcessQueue *PQ = NULL; 
+struct cpuCore *coreList[1];
 
 
-struct cpuCore *core1= NULL;
+//struct cpuCore *core1= NULL;
 
 //CPU-ak exekutatuko duen prozesua
 struct pcb *ExecProcess = NULL;
@@ -239,7 +242,7 @@ void execute_proccess(struct pcb *Process){
         }
         
     }
-
+    printf("EXEKUZIOA BUKATUTA\n");
    
     //sem_post(&sem_execute); 
     
@@ -248,7 +251,7 @@ void execute_proccess(struct pcb *Process){
 //Tenporizadoreak deitzen duen funtzioa, prozesu berri bat sortzen du.
 void *loader(){
     
-    
+   
     FILE *fp;
     char* filename =(char *) malloc(11*sizeof(char)); 
     filename = "prog000.elf"; //Lehenengo fitxategia -> Fitxategiak ordenean nomenklatura berdina izan behar dute ondo irakurtzeko
@@ -358,6 +361,8 @@ void *loader(){
              newProcces->STATE = WAIT;
              newProcces->MEMORY_MANAGER.code = textAddr;
              newProcces->MEMORY_MANAGER.data = dataAddr;
+
+             newProcces->PRIORITY = random() % 20+1;
              
              //(__int32_t) datuen balioak lortzeko
              //newProcces->EXEC_TIME =1 + rand() % 5;
@@ -378,28 +383,48 @@ void *loader(){
              break;
          }
     }
+    sem_post(&sem_loader);
 }       
 /**     
  * Tenporizadoreak deitzen dion funtzioa
 */
 void *scheduler(){
     while(1){
-        sem_wait(&sem_shceduler);   //Tenporizadoreari itxaron
-        printf("schedulerrari deitu zaio \n");  
+
+        printf("schedulerrari deitu zaio \n");
+
+        struct cpuCore *currentCore;
+        for(int i=0; i<numCore; i++){
+            if(coreList[i]->executableProcess==NULL){
+                currentCore = coreList[i];
+                printf("%d CORE-A AUKERATUTA\n", i);
+                break;
+            }
+        }
+
+        if(currentCore==NULL){
+            sem_wait(&sem_shceduler);
+        }
+
+
+           //Tenporizadoreari itxaron
+         
 
         struct pcb *currentProcces;
+
         if(!isEmpty(PQ)){
             switch(scheduler_algorithm){//Scheduling algoritmoaren arabera...
 
                 case FIFO:
                     currentProcces = deleteFirst(PQ); //Listako lehen elementua hartu eta listatik kendu(0 prozesua ez da hartzen)
                     currentProcces->STATE = RUN;
-                    printf("EXEKUTATZEN %d PROZESUA \n", currentProcces->ID);
+                    printf("EXEKUTATZEN %d PROZESUA --- %d CORE-AREKIN \n", currentProcces->ID, currentCore->ID);
                     
-                    execute_proccess(currentProcces);
+                    currentCore->executableProcess = currentProcces;
 
                     break;
 
+                /**
                 case ROUND_ROBIN:
                     currentProcces = deleteFirst(PQ); //Listako lehen elementua hartu eta listatik kendu(0 prozesua ez da hartzen)
                     printf("EXEKUTATZEN %d PROZESUA \n", currentProcces->ID);
@@ -418,53 +443,70 @@ void *scheduler(){
                         currentProcces->STATE=WAIT;
                     }
                     break;
-                case SJF:
+                **/
+                case PRIORITY_SCHED:
                         
                         struct ProcessQueue *shortestPQ = shortestProcess(PQ); //Prozesu motzena aukeratu
                         
+                        deletePQ(shortestPQ);
+
                         currentProcces = shortestPQ->data;  
                         printf("EXEKUTATZEN %d PROZESUA \n", currentProcces->ID);
                         //printf("%d \n", currentProcces->ID);
                         //currentProcces = shortestProcess(PQ);
-                        currentProcces->STATE = RUN;
                         
-                        sleep(currentProcces->EXEC_TIME); //Prozesu hori 'exekutatu'
+                         //Prozesua ilaratik atera
+
+                        currentCore->executableProcess = currentProcces;
+
                         
-                        deletePQ(shortestPQ); //Prozesua ilaratik atera
+                        
+                        
+                        break;
 
             }
+            //printList(PQ); //Prozesu ilara printeatu
+        }else{
+            printf("EZ DAGO EXEKUTATZEKO PROZESURIK\n");
+            sleep(1);
         }
         kont_sched = 0;
         
-        printList(PQ); //Prozesu ilara printeatu
+       
         
     }
 }
 
 
-void *cpuExecute(){
+void *cpuExecute(void *coreID){
     
-    cpuid+=1;
+    
+    cpuid = (int )coreID;
     struct cpuCore *core = (struct cpuCore*)malloc(sizeof(struct cpuCore));
     core->ID = cpuid;
     core->EXECUTING = 0;
     core->IR=0;
     core->PC=0;
     core->PTRB;
-    
-    
+   
 
+    coreList[cpuid] = core;
 
+   
 
+    printf("%d CORE-A ONDO SORTUTA \n", cpuid);
+    cpuid++;
     int kont = 0;//Kontagailua hasieratu
     pthread_mutex_lock(&mutex);
     while(1){
         
         int zikloKop = 0;
-        while(! core1->EXECUTING){
+        while(core->executableProcess!=NULL){
             done++;
-            
-            
+
+            execute_proccess(core->executableProcess);
+
+            core->executableProcess = NULL;
 
             pthread_cond_signal(&cond1);
             pthread_cond_wait(&cond2, &mutex);
@@ -486,16 +528,18 @@ int main(int argc, char *argv[]){
             printf("SCHEDULING ALGORITMOA -> ROUNDROBIN \n");
             scheduler_algorithm = ROUND_ROBIN;
         }
-        if(strcmp(argv[1],"SJF")==0){
-            printf("SCHEDULING ALGORITMOA -> SJF \n");
-            scheduler_algorithm = SJF;
+        if(strcmp(argv[1],"PRIORITY")==0){
+            printf("SCHEDULING ALGORITMOA -> PRIORITY \n");
+            scheduler_algorithm = PRIORITY_SCHED;
         }
     }else{
         printf("DEFEKTUZKO SCHEDULING ALGORITMOA -> FIFO \n");
     }
     
+    numCore =atoi(argv[2]); 
+    coreList[numCore];
 
-    struct cpuCore* coreList[atoi(argv[2])];
+    printf("-----HASIERATUTA %d CORE--------\n", numCore);
 
     /*TODO:
         Implementatu core ezberdinen hasieraketa
@@ -513,7 +557,7 @@ int main(int argc, char *argv[]){
     
     //Core-ak hasieratu
     
-    core1 = (struct cpuCore *)malloc(sizeof(struct cpuCore));
+    
 
     //Prozesu ilara hasieratu, ilara zirkular bat moduan hartu da
     PQ = (struct ProcessQueue *)malloc(sizeof(struct ProcessQueue));
@@ -535,23 +579,38 @@ int main(int argc, char *argv[]){
     //Hariak hasieratu eta deitu
 
     pthread_t erloj, tenp1, tenp2, sched, procGen, coreExec1;
+    
+    pthread_create(&procGen, NULL, loader, NULL );
+
+    sem_wait(&sem_loader);
+
     tenp_kop = 0;
     pthread_create(&erloj, NULL, erlojua, NULL);
 
     pthread_create(&tenp2, NULL, tenporizadorea_sched, NULL);
     tenp_kop++;
+
+    void *coreID = 0;
+
+     for(int i=0; i<numCore; i++){
+        pthread_t core;
+        
+        printf("hasieratuta %d core-a\n", i);
+        pthread_create(&core, NULL, cpuExecute, coreID);
+        coreID = coreID+1;
+        tenp_kop++;
+
+    }
+
     
     //pthread_create(&tenp1, NULL, tenporizadorea_proccessGen, NULL);
     //tenp_kop++;
 
     pthread_create(&sched, NULL, scheduler, NULL);
 
-    pthread_create(&procGen, NULL, loader, NULL );
+    
 
-
-    pthread_create(&coreExec1, NULL, cpuExecute, NULL);
-    tenp_kop++;
-
+   
     pthread_join(erloj, NULL);
 
 }
