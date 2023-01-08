@@ -30,6 +30,7 @@ struct ProcessQueue *shortestProcess(struct ProcessQueue *PQ){
             currentPQ = currentPQ->Next;
         }
     }
+    //PQ->Previous->Next = PQ->Next;
     return returnPQ;
 
 }

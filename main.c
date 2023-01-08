@@ -226,7 +226,7 @@ void execute_proccess(struct pcb *Process){
             erregHelbFis = dataHelbFisiko + ((int)strtol(erregHelb, NULL,16) - Process->MEMORY_MANAGER.data)/4;
 
             PHYSICAL_MEMORY[erregHelbFis] = erregList[erreg -48];
-            printf("KALKULUA EMAITZA -----> %d\n", erregList[erreg -48]);
+            printf("KALKULUA EMAITZA  %d PROZESUARENA-----> %d\n",Process->ID ,erregList[erreg -48]);
             break;
         case '2': // add
             erreg = currentCode[1]; //Beharrezko erregistroak hartu
@@ -393,7 +393,7 @@ void *scheduler(){
 
         printf("schedulerrari deitu zaio \n");
 
-        struct cpuCore *currentCore;
+        struct cpuCore *currentCore = NULL;
         for(int i=0; i<numCore; i++){
             if(coreList[i]->executableProcess==NULL){
                 currentCore = coreList[i];
@@ -403,11 +403,12 @@ void *scheduler(){
         }
 
         if(currentCore==NULL){
+            printf("CORE-A LIBRATZEARI ITXAROTEN\n");
             sem_wait(&sem_shceduler);
+            continue;
         }
 
 
-           //Tenporizadoreari itxaron
          
 
         struct pcb *currentProcces;
@@ -448,14 +449,14 @@ void *scheduler(){
                         
                         struct ProcessQueue *shortestPQ = shortestProcess(PQ); //Prozesu motzena aukeratu
                         
-                        deletePQ(shortestPQ);
+                        deletePQ(shortestPQ);//Prozesua ilaratik atera
 
                         currentProcces = shortestPQ->data;  
                         printf("EXEKUTATZEN %d PROZESUA \n", currentProcces->ID);
                         //printf("%d \n", currentProcces->ID);
                         //currentProcces = shortestProcess(PQ);
                         
-                         //Prozesua ilaratik atera
+                         
 
                         currentCore->executableProcess = currentProcces;
 
@@ -465,7 +466,7 @@ void *scheduler(){
                         break;
 
             }
-            //printList(PQ); //Prozesu ilara printeatu
+            printList(PQ); //Prozesu ilara printeatu
         }else{
             printf("EZ DAGO EXEKUTATZEKO PROZESURIK\n");
             sleep(1);
@@ -497,7 +498,7 @@ void *cpuExecute(void *coreID){
     printf("%d CORE-A ONDO SORTUTA \n", cpuid);
     cpuid++;
     int kont = 0;//Kontagailua hasieratu
-    pthread_mutex_lock(&mutex);
+   // pthread_mutex_lock(&mutex);
     while(1){
         
         int zikloKop = 0;
@@ -508,8 +509,8 @@ void *cpuExecute(void *coreID){
 
             core->executableProcess = NULL;
 
-            pthread_cond_signal(&cond1);
-            pthread_cond_wait(&cond2, &mutex);
+     //       pthread_cond_signal(&cond1);
+       //     pthread_cond_wait(&cond2, &mutex);
             zikloKop++;
         }
     }
@@ -598,7 +599,7 @@ int main(int argc, char *argv[]){
         printf("hasieratuta %d core-a\n", i);
         pthread_create(&core, NULL, cpuExecute, coreID);
         coreID = coreID+1;
-        tenp_kop++;
+     //   tenp_kop++;
 
     }
 

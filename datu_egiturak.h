@@ -12,7 +12,6 @@ struct pcb{
     struct mm MEMORY_MANAGER;
     int STATE;
     int PRIORITY;
-    // int PRIORITY;
     // int PC;
     // ....
 };
