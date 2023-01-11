@@ -41,6 +41,7 @@ struct ProcessQueue *shortestProcess(struct ProcessQueue *PQ){
 void deletePQ(struct ProcessQueue *PQ){
    
     PQ->Previous->Next = PQ->Next;
+    PQ->Next->Previous = PQ->Previous;
 }
 
 /**
@@ -51,7 +52,7 @@ void printList(struct ProcessQueue *PQ){
     struct ProcessQueue *currentPQ = PQ;
     printf("ProccesQueue :\n");
     while(currentPQ != NULL){
-        printf("-----\n");
+        printf("------------------------------\n");
         printf("PID - %d - Priority - %d \n", currentPQ->data->ID, currentPQ->data->PRIORITY);
         
         
@@ -61,6 +62,7 @@ void printList(struct ProcessQueue *PQ){
             currentPQ = currentPQ->Next;
         }
     }
+    printf("------------------------------\n");
 
 }
 /**

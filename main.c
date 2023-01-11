@@ -71,6 +71,7 @@ sem_t sem_shceduler;
 sem_t sem_proccesGenerator;
 sem_t sem_execute;
 sem_t sem_loader;
+sem_t sem_core_create;
 
 
 //Scheduling algoritmoaren defektuzko balioa
@@ -166,7 +167,7 @@ void *CPU(){
 */
 
 
-void execute_proccess(struct pcb *Process){
+void execute_proccess(struct pcb *Process, int erregList[16]){
     int kodeLuzera = (Process->MEMORY_MANAGER.data - Process->MEMORY_MANAGER.code)/4;
 
 
@@ -176,7 +177,6 @@ void execute_proccess(struct pcb *Process){
     int dataHelbFisiko = PHYSICAL_MEMORY[Process->MEMORY_MANAGER.pgb+1];
     printf("DATA HELBIDE FISIKOA --- %d\n", dataHelbFisiko);
     
-    int erregList[16];
     
     /**
      * pgb-aren forma
@@ -210,7 +210,7 @@ void execute_proccess(struct pcb *Process){
             //printf("ERREG HELBIDE LOGIKOA %d\n", (int)strtol(erregHelb, NULL,16));
 
             erregHelbFis = dataHelbFisiko + ((int)strtol(erregHelb, NULL,16) - Process->MEMORY_MANAGER.data)/4;
-            //printf("ERREG HELBIDE FISIKOA %d\n", erregHelbFis);
+           
             erreg = currentCode[1]; //Zein erregistro erabiliko den aukeratu
 
             erregList[erreg - 48] = (__int32_t)PHYSICAL_MEMORY[erregHelbFis]; //Erregistroan kargatu
@@ -405,7 +405,6 @@ void *scheduler(){
         if(currentCore==NULL){
             printf("CORE-A LIBRATZEARI ITXAROTEN\n");
             sem_wait(&sem_shceduler);
-            continue;
         }
 
 
@@ -413,7 +412,7 @@ void *scheduler(){
 
         struct pcb *currentProcces;
 
-        if(!isEmpty(PQ)){
+        if(!isEmpty(PQ) & currentCore!=NULL){
             switch(scheduler_algorithm){//Scheduling algoritmoaren arabera...
 
                 case FIFO:
@@ -483,35 +482,26 @@ void *cpuExecute(void *coreID){
     
     
     cpuid = (int )coreID;
-    struct cpuCore *core = (struct cpuCore*)malloc(sizeof(struct cpuCore));
-    core->ID = cpuid;
-    core->EXECUTING = 0;
-    core->IR=0;
-    core->PC=0;
-    core->PTRB;
-   
-
-    coreList[cpuid] = core;
-
-   
-
+    
+    struct cpuCore *core= coreList[cpuid];
     printf("%d CORE-A ONDO SORTUTA \n", cpuid);
-    cpuid++;
-    int kont = 0;//Kontagailua hasieratu
+
+    sem_post(&sem_core_create);
+   // int kont = 0;//Kontagailua hasieratu
    // pthread_mutex_lock(&mutex);
     while(1){
         
-        int zikloKop = 0;
+        //int zikloKop = 0;
         while(core->executableProcess!=NULL){
             done++;
 
-            execute_proccess(core->executableProcess);
+            execute_proccess(core->executableProcess, core->erregList);
 
             core->executableProcess = NULL;
 
      //       pthread_cond_signal(&cond1);
        //     pthread_cond_wait(&cond2, &mutex);
-            zikloKop++;
+        //       zikloKop++;
         }
     }
 }
@@ -525,10 +515,10 @@ int main(int argc, char *argv[]){
             printf("SCHEDULING ALGORITMOA -> FIFO \n");
             scheduler_algorithm = FIFO;
         }
-        if(strcmp(argv[1],"ROUNDROBIN")==0){
+        /**if(strcmp(argv[1],"ROUNDROBIN")==0){
             printf("SCHEDULING ALGORITMOA -> ROUNDROBIN \n");
             scheduler_algorithm = ROUND_ROBIN;
-        }
+        }*/
         if(strcmp(argv[1],"PRIORITY")==0){
             printf("SCHEDULING ALGORITMOA -> PRIORITY \n");
             scheduler_algorithm = PRIORITY_SCHED;
@@ -542,11 +532,6 @@ int main(int argc, char *argv[]){
 
     printf("-----HASIERATUTA %d CORE--------\n", numCore);
 
-    /*TODO:
-        Implementatu core ezberdinen hasieraketa
-        Hari bat sortu Core bakoitzeko 
-        Mutex bidez sinkronizatu (maybe)
-    */
 
     for(int i=0; i<PHYSICAL_MEMORY_SIZE; i++){
         PHYSICAL_MEMORY[i] = malloc(4);
@@ -557,8 +542,6 @@ int main(int argc, char *argv[]){
     //printf("%d \n",PHYSICAL_MEMORY[0]);
     
     //Core-ak hasieratu
-    
-    
 
     //Prozesu ilara hasieratu, ilara zirkular bat moduan hartu da
     PQ = (struct ProcessQueue *)malloc(sizeof(struct ProcessQueue));
@@ -568,19 +551,43 @@ int main(int argc, char *argv[]){
     PQ->data->STATE = 0;
     PQ->Previous = PQ;
 
-/**
-    for(int i=0; i<4; i++){
-        coreList[i] = (struct cpuCore*)malloc(sizeof(struct cpuCore));
-    }
-   */     
-
 
     ExecProcess = PQ->data;
 
     //Hariak hasieratu eta deitu
 
     pthread_t erloj, tenp1, tenp2, sched, procGen, coreExec1;
+
+    for(int i=0; i<numCore; i++){
+        struct cpuCore *core = (struct cpuCore*)malloc(sizeof(struct cpuCore));
+        core->ID = i;
+        core->EXECUTING = 0;
+        core->IR=0;
+        core->PC=0;
+        core->PTRB;
+        core->executableProcess = NULL;
+
+        coreList[i] = core;
+        printf("hasieratuta %d core-a\n", i);
+
+    }
+
+      void *coreID = 0;
+
+     pthread_t core[numCore];
+     for(int i=0; i<numCore; i++){
+        //pthread_t core;
+        
+        printf("pthread_create deitu\n");
+        pthread_create(&core[i], NULL, cpuExecute, i);
+
+        sem_wait(&sem_core_create);
+
+     //   tenp_kop++;
+
+    }
     
+    printf("LOADERRARI DEITZEN \n");
     pthread_create(&procGen, NULL, loader, NULL );
 
     sem_wait(&sem_loader);
@@ -591,19 +598,7 @@ int main(int argc, char *argv[]){
     pthread_create(&tenp2, NULL, tenporizadorea_sched, NULL);
     tenp_kop++;
 
-    void *coreID = 0;
 
-     for(int i=0; i<numCore; i++){
-        pthread_t core;
-        
-        printf("hasieratuta %d core-a\n", i);
-        pthread_create(&core, NULL, cpuExecute, coreID);
-        coreID = coreID+1;
-     //   tenp_kop++;
-
-    }
-
-    
     //pthread_create(&tenp1, NULL, tenporizadorea_proccessGen, NULL);
     //tenp_kop++;
 
