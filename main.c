@@ -527,8 +527,17 @@ int main(int argc, char *argv[]){
         printf("DEFEKTUZKO SCHEDULING ALGORITMOA -> FIFO \n");
     }
     
-    numCore =atoi(argv[2]); 
+    if(atoi(argv[2])<=0){
+        printf("DEFEKTUZKO CORE KOPURUA --> 1 \n");
+        numCore =1;
+    }else{
+           numCore =atoi(argv[2]); 
+    }
+    
+ 
     coreList[numCore];
+
+
 
     printf("-----HASIERATUTA %d CORE--------\n", numCore);
 
